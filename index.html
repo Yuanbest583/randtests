@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>优化边距显示</title>
+    <style>
+        #chart-container {
+            width: 800px;
+            height: 400px;
+            margin: 20px auto;
+            position: relative;
+        }
+        canvas {
+            border: 1px solid #ccc;
+            background: #f8f8f8;
+        }
+        .controls {
+            text-align: center;
+            margin: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 0 10px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <button onclick="toggleGenerator()" id="toggleBtn">开始生成</button>
+    </div>
+    <div id="chart-container">
+        <canvas id="chart" width="800" height="400"></canvas>
+    </div>
+
+    <script>
+        let isGenerating = false;
+        let animationId;
+        const data = [];
+        const randoms = [];
+        let currentXMax = 1;
+        
+        // 新增边距系统
+        const padding = {
+            left: 26,   // 根据最大文本宽度设置
+            right: 20,
+            top: 20,
+            bottom: 30
+        };
+
+        const canvas = document.getElementById('chart');
+        const ctx = canvas.getContext('2d');
+
+        function drawChart() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 计算实际绘图区域
+            const plotWidth = canvas.width - padding.left - padding.right;
+            const plotHeight = canvas.height - padding.top - padding.bottom;
+
+            // 绘制基准线系统
+            ctx.strokeStyle = '#ddd';
+            ctx.beginPath();
+            
+            // 水平基准线（调整坐标计算）
+            [0, 0.5, 1].forEach(y => {
+                const yPos = padding.top + (1 - y) * plotHeight;
+                ctx.moveTo(padding.left, yPos);
+                ctx.lineTo(canvas.width - padding.right, yPos);
+            });
+
+            // 动态垂直基准线（调整坐标计算）
+            const calcInterval = () => Math.round(currentXMax / 20) || 1;
+            const interval = calcInterval();
+            const firstLine = interval;
+            const lastLine = Math.floor(currentXMax / interval) * interval;
+
+            for (let x = firstLine; x <= lastLine; x += interval) {
+                const xPos = padding.left + (x / currentXMax) * plotWidth;
+                ctx.moveTo(xPos, padding.top);
+                ctx.lineTo(xPos, canvas.height - padding.bottom);
+            }
+            ctx.stroke();
+
+            // 绘制折线（调整坐标计算）
+            if (data.length > 0) {
+                ctx.beginPath();
+                ctx.strokeStyle = '#27ae60';
+                ctx.lineWidth = Math.max(0.3, 2 - data.length*0.008);
+
+                data.forEach((avg, index) => {
+                    const x = padding.left + (index / currentXMax) * plotWidth;
+                    const y = padding.top + (1 - avg) * plotHeight;
+                    index === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+                });
+                ctx.stroke();
+            }
+
+            // 绘制Y轴标签（右侧对齐）
+            ctx.fillStyle = '#000';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'right';
+            [0, 0.5, 1].forEach(y => {
+                const yPos = padding.top + (1 - y) * plotHeight;
+                ctx.fillText(y.toFixed(1), padding.left - 5, yPos + 4);
+            });
+
+            // 绘制X轴标签（顶部对齐）
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            for (let x = firstLine; x <= lastLine; x += interval) {
+                const xPos = padding.left + (x / currentXMax) * plotWidth;
+                ctx.fillText(x, xPos, canvas.height - padding.bottom + 5);
+            }
+
+            // 实时差值显示（位置调整）
+            if (data.length > 0) {
+                const diff = data[data.length-1] - 0.5;
+                ctx.fillStyle = diff > 0 ? '#c0392b' : '#2980b9';
+                ctx.font = '14px Arial';
+                ctx.textAlign = 'right';
+                ctx.fillText(
+                    `Δ ${diff >= 0 ? '+' : ''}${diff.toFixed(10)}`,
+                    canvas.width - padding.right,
+                    padding.top
+                );
+            }
+        }
+
+        function generateData() {
+            const newNum = Math.random();
+            randoms.push(newNum);
+            
+            const currentAvg = data.length > 0 
+                ? (data[data.length-1] * data.length + newNum) / randoms.length
+                : newNum;
+            data.push(currentAvg);
+
+            currentXMax = randoms.length;
+            drawChart();
+            animationId = requestAnimationFrame(generateData);
+        }
+
+        function toggleGenerator() {
+            const btn = document.getElementById('toggleBtn');
+            isGenerating = !isGenerating;
+            btn.textContent = isGenerating ? '停止生成' : '开始生成';
+            isGenerating ? generateData() : cancelAnimationFrame(animationId);
+        }
+    </script>
+</body>
+</html>
